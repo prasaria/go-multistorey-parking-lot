@@ -1,8 +1,9 @@
 package model
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 // IsValidSpotCode checks if a string is a valid spot code in the format "TYPE-STATUS"
@@ -32,7 +33,7 @@ func IsValidSpotCode(code string) bool {
 // SpotCodeToSpotType converts a spot code (e.g., "B-1") to a SpotType
 func SpotCodeToSpotType(code string) (SpotType, error) {
 	if !IsValidSpotCode(code) {
-		return "", fmt.Errorf("invalid spot code format: %s", code)
+		return "", errors.NewInvalidSpotTypeError(code)
 	}
 
 	return SpotType(code), nil
