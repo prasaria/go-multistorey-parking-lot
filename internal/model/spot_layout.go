@@ -1,8 +1,9 @@
 package model
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 // SpotLayout represents a layout of parking spots
@@ -14,15 +15,18 @@ type SpotLayout struct {
 func NewSpotLayout(floors, rows, columns int) (*SpotLayout, error) {
 	// Validate dimensions
 	if floors < 1 || floors > 8 {
-		return nil, errors.New("number of floors must be between 1 and 8")
+		return nil, errors.NewValidationError("floors",
+			fmt.Sprintf("%d", floors), "number of floors must be between 1 and 8")
 	}
 
 	if rows < 1 || rows > 1000 {
-		return nil, errors.New("number of rows must be between 1 and 1000")
+		return nil, errors.NewValidationError("rows",
+			fmt.Sprintf("%d", rows), "number of rows must be between 1 and 1000")
 	}
 
 	if columns < 1 || columns > 1000 {
-		return nil, errors.New("number of columns must be between 1 and 1000")
+		return nil, errors.NewValidationError("columns",
+			fmt.Sprintf("%d", columns), "number of columns must be between 1 and 1000")
 	}
 
 	// Initialize layout with default distribution
@@ -142,15 +146,21 @@ func NewSpotLayout(floors, rows, columns int) (*SpotLayout, error) {
 func (l *SpotLayout) GetSpotType(floor, row, column int) (SpotType, error) {
 	// Validate location
 	if floor < 0 || floor >= len(l.SpotMap) {
-		return "", fmt.Errorf("floor %d out of range [0-%d]", floor, len(l.SpotMap)-1)
+		return "", errors.NewValidationError("floor",
+			fmt.Sprintf("%d", floor),
+			fmt.Sprintf("floor out of range [0-%d]", len(l.SpotMap)-1))
 	}
 
 	if row < 0 || row >= len(l.SpotMap[floor]) {
-		return "", fmt.Errorf("row %d out of range [0-%d]", row, len(l.SpotMap[floor])-1)
+		return "", errors.NewValidationError("row",
+			fmt.Sprintf("%d", row),
+			fmt.Sprintf("row out of range [0-%d]", len(l.SpotMap[floor])-1))
 	}
 
 	if column < 0 || column >= len(l.SpotMap[floor][row]) {
-		return "", fmt.Errorf("column %d out of range [0-%d]", column, len(l.SpotMap[floor][row])-1)
+		return "", errors.NewValidationError("column",
+			fmt.Sprintf("%d", column),
+			fmt.Sprintf("column out of range [0-%d]", len(l.SpotMap[floor][row])-1))
 	}
 
 	return l.SpotMap[floor][row][column], nil
@@ -166,15 +176,21 @@ func (l *SpotLayout) SetSpotType(floor, row, column int, spotType SpotType) erro
 
 	// Validate location
 	if floor < 0 || floor >= len(l.SpotMap) {
-		return fmt.Errorf("floor %d out of range [0-%d]", floor, len(l.SpotMap)-1)
+		return errors.NewValidationError("floor",
+			fmt.Sprintf("%d", floor),
+			fmt.Sprintf("floor out of range [0-%d]", len(l.SpotMap)-1))
 	}
 
 	if row < 0 || row >= len(l.SpotMap[floor]) {
-		return fmt.Errorf("row %d out of range [0-%d]", row, len(l.SpotMap[floor])-1)
+		return errors.NewValidationError("row",
+			fmt.Sprintf("%d", row),
+			fmt.Sprintf("row out of range [0-%d]", len(l.SpotMap[floor])-1))
 	}
 
 	if column < 0 || column >= len(l.SpotMap[floor][row]) {
-		return fmt.Errorf("column %d out of range [0-%d]", column, len(l.SpotMap[floor][row])-1)
+		return errors.NewValidationError("column",
+			fmt.Sprintf("%d", column),
+			fmt.Sprintf("column out of range [0-%d]", len(l.SpotMap[floor][row])-1))
 	}
 
 	l.SpotMap[floor][row][column] = spotType
@@ -208,7 +224,8 @@ func (l *SpotLayout) CountSpotsByType() map[SpotType]int {
 func (l *SpotLayout) CreateParkingSpots() ([][]*ParkingSpot, error) {
 	floors := len(l.SpotMap)
 	if floors == 0 {
-		return nil, errors.New("empty layout")
+		return nil, errors.NewValidationError("floorNumber",
+			fmt.Sprintf("%d", floors), "floor number cannot be less than 1")
 	}
 
 	// Create spots
