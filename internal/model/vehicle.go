@@ -1,9 +1,10 @@
 package model
 
 import (
-	"errors"
 	"regexp"
 	"strings"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 // Vehicle represents a vehicle that can be parked in the parking lot
@@ -15,14 +16,8 @@ type Vehicle struct {
 	Number string
 }
 
-// Error definition
-var (
-	ErrInvalidVehicleNumber = errors.New("invalid vehicle number format")
-	ErrEmptyVehicleNumber   = errors.New("vehicle number cannot be empty")
-)
-
 // Vehicle number validation pattern
-// This is a simpe pattern that accepts alphanumeric character with possible hyphens and spaces
+// This is a simple pattern that accepts alphanumeric characters with possible hyphens and spaces
 var vehicleNumberPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9\s-]*$`)
 
 // NewVehicle creates a new vehicle with the given type and number
@@ -31,7 +26,7 @@ func NewVehicle(vehicleType VehicleType, number string) (*Vehicle, error) {
 	if vehicleType != VehicleTypeBicycle &&
 		vehicleType != VehicleTypeMotorcycle &&
 		vehicleType != VehicleTypeAutomobile {
-		return nil, ErrInvalidVehicleType
+		return nil, errors.NewInvalidVehicleTypeError(string(vehicleType))
 	}
 
 	// Validate vehicle number
@@ -49,12 +44,12 @@ func NewVehicle(vehicleType VehicleType, number string) (*Vehicle, error) {
 func ValidateVehicleNumber(number string) error {
 	// Check for empty string
 	if strings.TrimSpace(number) == "" {
-		return ErrEmptyVehicleNumber
+		return errors.NewInvalidVehicleNumberError(number, "vehicle number cannot be empty")
 	}
 
 	// Check pattern
 	if !vehicleNumberPattern.MatchString(number) {
-		return ErrInvalidVehicleNumber
+		return errors.NewInvalidVehicleNumberError(number, "invalid format")
 	}
 
 	return nil
