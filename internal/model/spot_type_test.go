@@ -37,7 +37,7 @@ func TestSpotTypeCanParkVehicleType(t *testing.T) {
 		{SpotTypeBicycle, VehicleTypeAutomobile, false},
 
 		// Motorcycle spots
-		{SpotTypeMotorcycle, VehicleTypeBicycle, true},
+		{SpotTypeMotorcycle, VehicleTypeBicycle, false},
 		{SpotTypeMotorcycle, VehicleTypeMotorcycle, true},
 		{SpotTypeMotorcycle, VehicleTypeAutomobile, false},
 

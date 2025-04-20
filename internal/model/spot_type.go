@@ -38,11 +38,12 @@ func (s SpotType) CanParkVehicleType(vt VehicleType) bool {
 		return false
 	}
 
+	// Only allow exact matches between vehicle types and spot types
 	switch s {
 	case SpotTypeBicycle:
 		return vt == VehicleTypeBicycle
 	case SpotTypeMotorcycle:
-		return vt == VehicleTypeBicycle || vt == VehicleTypeMotorcycle
+		return vt == VehicleTypeMotorcycle
 	case SpotTypeAutomobile:
 		return vt == VehicleTypeAutomobile
 	default:

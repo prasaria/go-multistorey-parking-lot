@@ -30,8 +30,8 @@ func TestVehicleTypeGetCompatibleSpotTypes(t *testing.T) {
 		vehicleType VehicleType
 		spotTypes   []SpotType
 	}{
-		{VehicleTypeBicycle, []SpotType{SpotTypeBicycle, SpotTypeMotorcycle, SpotTypeAutomobile}},
-		{VehicleTypeMotorcycle, []SpotType{SpotTypeMotorcycle, SpotTypeAutomobile}},
+		{VehicleTypeBicycle, []SpotType{SpotTypeBicycle}},
+		{VehicleTypeMotorcycle, []SpotType{SpotTypeMotorcycle}},
 		{VehicleTypeAutomobile, []SpotType{SpotTypeAutomobile}},
 	}
 

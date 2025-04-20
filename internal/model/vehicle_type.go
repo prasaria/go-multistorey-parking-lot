@@ -43,9 +43,9 @@ func (v VehicleType) GetPreferredSpotType() SpotType {
 func (v VehicleType) GetCompatibleSpotTypes() []SpotType {
 	switch v {
 	case VehicleTypeBicycle:
-		return []SpotType{SpotTypeBicycle, SpotTypeMotorcycle, SpotTypeAutomobile}
+		return []SpotType{SpotTypeBicycle}
 	case VehicleTypeMotorcycle:
-		return []SpotType{SpotTypeMotorcycle, SpotTypeAutomobile}
+		return []SpotType{SpotTypeMotorcycle}
 	case VehicleTypeAutomobile:
 		return []SpotType{SpotTypeAutomobile}
 	default:
