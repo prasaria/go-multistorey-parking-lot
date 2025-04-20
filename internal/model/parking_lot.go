@@ -282,3 +282,253 @@ func (p *ParkingLot) String() string {
 		p.Name, len(p.floors), p.GetTotalSpotCount(), p.GetActiveSpotCount(),
 		p.GetOccupiedSpotCount(), p.GetAvailableSpotCount())
 }
+
+// Park parks a vehicle of the given type and number in an available spot
+// Returns the assigned spot ID or an error if no spot is available
+func (p *ParkingLot) Park(vehicleType VehicleType, vehicleNumber string) (string, error) {
+	// Validate inputs
+	if vehicleType != VehicleTypeBicycle &&
+		vehicleType != VehicleTypeMotorcycle &&
+		vehicleType != VehicleTypeAutomobile {
+		return "", errors.NewInvalidVehicleTypeError(string(vehicleType))
+	}
+
+	if err := ValidateVehicleNumber(vehicleNumber); err != nil {
+		return "", err
+	}
+
+	normalizedNumber := NormalizeVehicleNumber(vehicleNumber)
+
+	// Check if the vehicle is already parked
+	if spotIDObj, found := p.parkedVehicles.Load(normalizedNumber); found {
+		spotID := spotIDObj.(string)
+		return "", errors.NewVehicleAlreadyParkedError(vehicleNumber, spotID)
+	}
+
+	// Find an available parking spot for this vehicle type
+	p.mu.RLock()
+	var availableSpot *ParkingSpot
+
+	// Try to find a spot on each floor
+	for _, floor := range p.floors {
+		spots := floor.GetAvailableSpots(vehicleType)
+		if len(spots) > 0 {
+			availableSpot = spots[0]
+			break
+		}
+	}
+	p.mu.RUnlock()
+
+	if availableSpot == nil {
+		return "", errors.NewNoSpaceError(string(vehicleType))
+	}
+
+	// Occupy the spot
+	if err := availableSpot.Occupy(normalizedNumber); err != nil {
+		return "", errors.WrapError(err, "OCCUPATION_ERROR",
+			fmt.Sprintf("failed to occupy spot %s", availableSpot.GetSpotID()))
+	}
+
+	// Record the parking in the maps
+	spotID := availableSpot.GetSpotID()
+	p.parkedVehicles.Store(normalizedNumber, spotID)
+
+	// Update vehicle history
+	historyObj, found := p.vehicleHistory.Load(normalizedNumber)
+	var history *VehicleHistory
+
+	if !found {
+		// Create new vehicle
+		vehicle, _ := NewVehicle(vehicleType, normalizedNumber)
+		history = NewVehicleHistory(vehicle)
+	} else {
+		history = historyObj.(*VehicleHistory)
+	}
+
+	history.AddParkingRecord(spotID)
+	p.vehicleHistory.Store(normalizedNumber, history)
+
+	return spotID, nil
+}
+
+// Unpark removes a vehicle from its parking spot
+// Returns an error if the vehicle is not parked or if the spot ID doesn't match
+func (p *ParkingLot) Unpark(spotID, vehicleNumber string) error {
+	// Validate inputs
+	if err := ValidateVehicleNumber(vehicleNumber); err != nil {
+		return err
+	}
+
+	normalizedNumber := NormalizeVehicleNumber(vehicleNumber)
+
+	// Check if the vehicle is parked
+	spotIDObj, found := p.parkedVehicles.Load(normalizedNumber)
+	if !found {
+		return errors.NewVehicleNotFoundError(vehicleNumber)
+	}
+
+	currentSpotID := spotIDObj.(string)
+	if currentSpotID != spotID {
+		return errors.NewInvalidOperationError("unpark",
+			fmt.Sprintf("vehicle %s is parked at spot %s, not %s",
+				vehicleNumber, currentSpotID, spotID))
+	}
+
+	// Get the spot
+	spot, err := p.GetSpotByID(spotID)
+	if err != nil {
+		return errors.WrapError(err, "RETRIEVAL_ERROR",
+			fmt.Sprintf("failed to get spot %s", spotID))
+	}
+
+	// Vacate the spot
+	if err := spot.Vacate(normalizedNumber); err != nil {
+		return errors.WrapError(err, "VACATION_ERROR",
+			fmt.Sprintf("failed to vacate spot %s", spotID))
+	}
+
+	// Remove from parked vehicles map
+	p.parkedVehicles.Delete(normalizedNumber)
+
+	// Update vehicle history
+	historyObj, found := p.vehicleHistory.Load(normalizedNumber)
+	if found {
+		history := historyObj.(*VehicleHistory)
+		if err := history.CompleteLastParkingRecord(); err != nil {
+			// Log this error but don't fail the operation
+			fmt.Printf("Warning: failed to complete parking record: %v\n", err)
+		}
+		p.vehicleHistory.Store(normalizedNumber, history)
+	}
+
+	return nil
+}
+
+// AvailableSpot returns the list of available spot IDs for the given vehicle type
+func (p *ParkingLot) AvailableSpot(vehicleType VehicleType) ([]string, error) {
+	// Validate input
+	if vehicleType != VehicleTypeBicycle &&
+		vehicleType != VehicleTypeMotorcycle &&
+		vehicleType != VehicleTypeAutomobile {
+		return nil, errors.NewInvalidVehicleTypeError(string(vehicleType))
+	}
+
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	var availableSpots []string
+
+	// Gather available spots from each floor
+	for _, floor := range p.floors {
+		spots := floor.GetAvailableSpots(vehicleType)
+		for _, spot := range spots {
+			availableSpots = append(availableSpots, spot.GetSpotID())
+		}
+	}
+
+	return availableSpots, nil
+}
+
+// GetAvailableSpotCount returns the number of available spots for each vehicle type
+func (p *ParkingLot) GetAvailableSpotCountByType() map[VehicleType]int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	counts := make(map[VehicleType]int)
+	counts[VehicleTypeBicycle] = 0
+	counts[VehicleTypeMotorcycle] = 0
+	counts[VehicleTypeAutomobile] = 0
+
+	// Count available spots of each type
+	for _, floor := range p.floors {
+		for _, vehicleType := range []VehicleType{
+			VehicleTypeBicycle,
+			VehicleTypeMotorcycle,
+			VehicleTypeAutomobile,
+		} {
+			spots := floor.GetAvailableSpots(vehicleType)
+			counts[vehicleType] += len(spots)
+		}
+	}
+
+	return counts
+}
+
+// SearchVehicle finds a vehicle in the parking lot by its number
+// Returns the spot ID where the vehicle is parked, or the last spot ID if unparked
+func (p *ParkingLot) SearchVehicle(vehicleNumber string) (string, bool, error) {
+	if err := ValidateVehicleNumber(vehicleNumber); err != nil {
+		return "", false, err
+	}
+
+	normalizedNumber := NormalizeVehicleNumber(vehicleNumber)
+
+	// Check if the vehicle is currently parked
+	if spotIDObj, found := p.parkedVehicles.Load(normalizedNumber); found {
+		return spotIDObj.(string), true, nil
+	}
+
+	// Check if the vehicle has parking history
+	historyObj, found := p.vehicleHistory.Load(normalizedNumber)
+	if !found {
+		return "", false, errors.NewVehicleNotFoundError(vehicleNumber)
+	}
+
+	history := historyObj.(*VehicleHistory)
+	lastSpotID := history.GetLastSpotID()
+	if lastSpotID == "" {
+		return "", false, errors.NewVehicleNotFoundError(vehicleNumber)
+	}
+
+	return lastSpotID, false, nil
+}
+
+// GetParkedVehicleCount returns the total number of vehicles currently parked
+func (p *ParkingLot) GetParkedVehicleCount() int {
+	count := 0
+	p.parkedVehicles.Range(func(_, _ interface{}) bool {
+		count++
+		return true
+	})
+	return count
+}
+
+// GetAllParkedVehicles returns all currently parked vehicles
+func (p *ParkingLot) GetAllParkedVehicles() map[string]string {
+	vehicles := make(map[string]string)
+	p.parkedVehicles.Range(func(k, v interface{}) bool {
+		vehicleNumber := k.(string)
+		spotID := v.(string)
+		vehicles[vehicleNumber] = spotID
+		return true
+	})
+	return vehicles
+}
+
+// Reset removes all vehicles from the parking lot and clears history
+func (p *ParkingLot) Reset() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Reset parking spots
+	for _, floor := range p.floors {
+		rows, cols := floor.GetDimensions()
+		for r := 0; r < rows; r++ {
+			for c := 0; c < cols; c++ {
+				spot, err := floor.GetSpot(r, c)
+				if err != nil {
+					continue
+				}
+
+				if spot.IsOccupied() {
+					// Ignore errors as we're forcefully resetting
+					_ = spot.Vacate(spot.GetVehicleNumber())
+				}
+			}
+		}
+	}
+
+	// Clear maps
+	p.parkedVehicles = sync.Map{}
+	p.vehicleHistory = sync.Map{}
+}
