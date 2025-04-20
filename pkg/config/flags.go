@@ -3,7 +3,7 @@ package config
 import "flag"
 
 // ParseInitCommand: parses the init command flag
-func ParseInitCommand(arg []string) (ParkingLotConfig, error) {
+func ParseInitCommand(args []string) (ParkingLotConfig, error) {
 	// Start  with the default configuration
 	config := DefaultConfig()
 
@@ -14,6 +14,11 @@ func ParseInitCommand(arg []string) (ParkingLotConfig, error) {
 	initCmd.IntVar(&config.Floors, "floors", config.Floors, "Number of floors (1-8)")
 	initCmd.IntVar(&config.Rows, "rows", config.Rows, "Number of rows per floor (1-1000)")
 	initCmd.IntVar(&config.Columns, "columns", config.Columns, "Number of columns per row (1-1000)")
+
+	// Parse flags
+	if err := initCmd.Parse(args); err != nil {
+		return config, err
+	}
 
 	// Parse flags
 	if err := config.Validate(); err != nil {
