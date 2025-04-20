@@ -1,18 +1,10 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"sync"
-)
 
-// Error definitions of parking spots
-var (
-	ErrSpotAlreadyOccupied   = errors.New("parking spot is already occupied")
-	ErrSpotNotOccupied       = errors.New("parking spot is not occupied")
-	ErrSpotInactive          = errors.New("parking spot is inactive")
-	ErrInvalidVehicleForSpot = errors.New("vehicle type not allowed in this spot")
-	ErrInvalidSpotID         = errors.New("invalid spot ID format")
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 // ParkingSpot represents a single parking space in the parking lot
@@ -38,20 +30,20 @@ func NewParkingSpot(spotType SpotType, floor, row, column int) (*ParkingSpot, er
 	// Validate spot type
 	_, err := ParseSpotType(string(spotType))
 	if err != nil {
-		return nil, err
+		return nil, errors.NewInvalidSpotTypeError(string(spotType))
 	}
 
 	// Validate location
 	if floor < 0 {
-		return nil, errors.New("floor number cannot be negative")
+		return nil, errors.NewValidationError("floor", fmt.Sprintf("%d", floor), "floor number cannot be negative")
 	}
 
 	if row < 0 {
-		return nil, errors.New("row number cannot be negative")
+		return nil, errors.NewValidationError("row", fmt.Sprintf("%d", row), "row number cannot be negative")
 	}
 
 	if column < 0 {
-		return nil, errors.New("column number cannot be negative")
+		return nil, errors.NewValidationError("column", fmt.Sprintf("%d", column), "column number cannot be negative")
 	}
 
 	return &ParkingSpot{
@@ -115,17 +107,17 @@ func (s *ParkingSpot) Occupy(vehicleNumber string) error {
 
 	// Check if spot is active
 	if !s.Type.IsActive() {
-		return ErrSpotInactive
+		return errors.NewSpotInactiveError(s.GetSpotID())
 	}
 
 	// Check if spot is already occupied
 	if s.isOccupied {
-		return ErrSpotAlreadyOccupied
+		return errors.NewSpotAlreadyOccupiedError(s.GetSpotID())
 	}
 
 	// Validate vehicle number
 	if err := ValidateVehicleNumber(vehicleNumber); err != nil {
-		return err
+		return errors.NewInvalidVehicleNumberError(vehicleNumber, err.Error())
 	}
 
 	// Mark as occupied
@@ -143,18 +135,18 @@ func (s *ParkingSpot) Vacate(vehicleNumber string) error {
 
 	// Check if spot is active
 	if !s.Type.IsActive() {
-		return ErrSpotInactive
+		return errors.NewSpotInactiveError(s.GetSpotID())
 	}
 
 	// Check if spot is occupied
 	if !s.isOccupied {
-		return ErrSpotNotOccupied
+		return errors.NewSpotNotOccupiedError(s.GetSpotID())
 	}
 
 	// Validate the vehicle number matches
-	if NormalizeVehicleNumber(vehicleNumber) != s.vehicleNumber {
-		return fmt.Errorf("spot is occupied by %s, not %s",
-			s.vehicleNumber, NormalizeVehicleNumber(vehicleNumber))
+	normalizedNumber := NormalizeVehicleNumber(vehicleNumber)
+	if normalizedNumber != s.vehicleNumber {
+		return errors.NewVehicleMismatchError(s.GetSpotID(), s.vehicleNumber, normalizedNumber)
 	}
 
 	// Mark as unoccupied
@@ -187,22 +179,23 @@ func (s *ParkingSpot) String() string {
 // Returns floor, row, column and error
 func ParseSpotID(spotID string) (int, int, int, error) {
 	var floor, row, column int
-	_, err := fmt.Sscanf(spotID, "%d-%d-%d", &floor, &row, &column)
-	if err != nil {
-		return 0, 0, 0, ErrInvalidSpotID
+	count, err := fmt.Sscanf(spotID, "%d-%d-%d", &floor, &row, &column)
+
+	if err != nil || count != 3 {
+		return 0, 0, 0, errors.NewInvalidSpotIDError(spotID, "invalid format, expected floor-row-column")
 	}
 
 	// Validate bounds
 	if floor < 0 {
-		return 0, 0, 0, errors.New("floor number cannot be negative")
+		return 0, 0, 0, errors.NewInvalidSpotIDError(spotID, "floor number cannot be negative")
 	}
 
 	if row < 0 {
-		return 0, 0, 0, errors.New("row number cannot be negative")
+		return 0, 0, 0, errors.NewInvalidSpotIDError(spotID, "row number cannot be negative")
 	}
 
 	if column < 0 {
-		return 0, 0, 0, errors.New("column number cannot be negative")
+		return 0, 0, 0, errors.NewInvalidSpotIDError(spotID, "column number cannot be negative")
 	}
 
 	return floor, row, column, nil
