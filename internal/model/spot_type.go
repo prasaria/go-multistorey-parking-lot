@@ -1,11 +1,12 @@
 package model
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
-// SpotType represents the type of a parkign spot
+// SpotType represents the type of a parking spot
 type SpotType string
 
 const (
@@ -20,11 +21,6 @@ const (
 
 	// SpotTypeInactive represents an inactive parking spot
 	SpotTypeInactive SpotType = "X-0"
-)
-
-// Error definitions
-var (
-	ErrInvalidSpotType = errors.New("invalid spot type")
 )
 
 // IsActive returns true if the spot type is active
@@ -63,6 +59,11 @@ func ParseSpotType(s string) (SpotType, error) {
 	case string(SpotTypeInactive):
 		return SpotTypeInactive, nil
 	default:
-		return "", ErrInvalidSpotType
+		return "", errors.NewInvalidSpotTypeError(s)
 	}
+}
+
+// String returns the string representation of SpotType
+func (s SpotType) String() string {
+	return string(s)
 }
