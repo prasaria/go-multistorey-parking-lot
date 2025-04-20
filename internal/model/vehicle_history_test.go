@@ -3,6 +3,8 @@ package model
 import (
 	"testing"
 	"time"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 func TestParkingRecordIsComplete(t *testing.T) {
@@ -128,9 +130,10 @@ func TestVehicleHistory(t *testing.T) {
 		t.Errorf("Expected last spot ID '1-2-3', got %s", history.GetLastSpotID())
 	}
 
-	// Complete parking record
-	if !history.CompleteLastParkingRecord() {
-		t.Errorf("Expected to successfully complete last parking record")
+	// Complete parking record - update to check for error instead of boolean
+	err := history.CompleteLastParkingRecord()
+	if err != nil {
+		t.Errorf("Expected to successfully complete last parking record, got error: %v", err)
 	}
 
 	if history.IsCurrentlyParked() {
@@ -145,9 +148,15 @@ func TestVehicleHistory(t *testing.T) {
 		t.Errorf("Expected last spot ID '1-2-3', got %s", history.GetLastSpotID())
 	}
 
-	// Try to complete again (should fail)
-	if history.CompleteLastParkingRecord() {
+	// Try to complete again (should return error now)
+	err = history.CompleteLastParkingRecord()
+	if err == nil {
 		t.Errorf("Should not be able to complete an already completed record")
+	}
+
+	// Check if the error is of the expected type
+	if _, ok := err.(*errors.InvalidOperationError); !ok {
+		t.Errorf("Expected InvalidOperationError, got %T", err)
 	}
 
 	// Add another parking record
@@ -166,8 +175,9 @@ func TestVehicleHistory(t *testing.T) {
 	}
 
 	// Complete the second record
-	if !history.CompleteLastParkingRecord() {
-		t.Errorf("Expected to successfully complete last parking record")
+	err = history.CompleteLastParkingRecord()
+	if err != nil {
+		t.Errorf("Expected to successfully complete last parking record, got error: %v", err)
 	}
 
 	// Verify record count
@@ -180,5 +190,40 @@ func TestVehicleHistory(t *testing.T) {
 		if !record.IsComplete() {
 			t.Errorf("Expected record %d to be complete", i)
 		}
+	}
+}
+
+// Add a specific test for error cases
+func TestVehicleHistoryErrors(t *testing.T) {
+	vehicle, _ := NewVehicle(VehicleTypeAutomobile, "KA-01-HH-1234")
+	history := NewVehicleHistory(vehicle)
+
+	// Test completing record with no records
+	err := history.CompleteLastParkingRecord()
+	if err == nil {
+		t.Errorf("Expected error when completing record with no history")
+	}
+
+	// Check if the error is of the expected type
+	if _, ok := err.(*errors.InvalidOperationError); !ok {
+		t.Errorf("Expected InvalidOperationError, got %T", err)
+	}
+
+	// Add and complete a record
+	history.AddParkingRecord("1-2-3")
+	err = history.CompleteLastParkingRecord()
+	if err != nil {
+		t.Errorf("Expected to successfully complete record, got error: %v", err)
+	}
+
+	// Try to complete again
+	err = history.CompleteLastParkingRecord()
+	if err == nil {
+		t.Errorf("Expected error when completing already completed record")
+	}
+
+	// Check if the error is of the expected type
+	if _, ok := err.(*errors.InvalidOperationError); !ok {
+		t.Errorf("Expected InvalidOperationError, got %T", err)
 	}
 }
