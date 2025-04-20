@@ -1,9 +1,10 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 // ParkingFloor represents a single floor in the parking lot
@@ -24,12 +25,14 @@ type ParkingFloor struct {
 
 // NewParkingFloor creates a new parking floor with the given spots
 func NewParkingFloor(floorNumber int, spots [][]*ParkingSpot) (*ParkingFloor, error) {
-	if floorNumber < 0 {
-		return nil, errors.New("floor number cannot be negative")
+	if floorNumber <= 0 {
+		return nil, errors.NewValidationError("floorNumber",
+			fmt.Sprintf("%d", floorNumber), "floor number cannot be less than 1")
 	}
 
 	if len(spots) == 0 {
-		return nil, errors.New("floor must have at least one row")
+		return nil, errors.NewValidationError("spots",
+			"[]", "floor must have at least one row")
 	}
 
 	numRows := len(spots)
@@ -40,10 +43,12 @@ func NewParkingFloor(floorNumber int, spots [][]*ParkingSpot) (*ParkingFloor, er
 		if i == 0 {
 			numColumns = len(row)
 			if numColumns == 0 {
-				return nil, errors.New("each row must have at least one spot")
+				return nil, errors.NewValidationError("spots",
+					"[][]", "each row must have at least one spot")
 			}
 		} else if len(row) != numColumns {
-			return nil, errors.New("all rows must have the same number of columns")
+			return nil, errors.NewValidationError("spots",
+				"[][]", "all rows must have the same number of columns")
 		}
 	}
 
@@ -59,22 +64,28 @@ func NewParkingFloor(floorNumber int, spots [][]*ParkingSpot) (*ParkingFloor, er
 func CreateParkingFloor(floorNumber int, rows, columns int, spotTypes [][]SpotType) (*ParkingFloor, error) {
 	// Validate dimensions
 	if rows <= 0 || rows > 1000 {
-		return nil, fmt.Errorf("number of rows must be between 1 and 1000, got %d", rows)
+		return nil, errors.NewValidationError("rows",
+			fmt.Sprintf("%d", rows), "number of rows must be between 1 and 1000")
 	}
 
 	if columns <= 0 || columns > 1000 {
-		return nil, fmt.Errorf("number of columns must be between 1 and 1000, got %d", columns)
+		return nil, errors.NewValidationError("columns",
+			fmt.Sprintf("%d", columns), "number of columns must be between 1 and 1000")
 	}
 
 	// Validate spot types if provided
 	if spotTypes != nil {
 		if len(spotTypes) != rows {
-			return nil, fmt.Errorf("spot types has %d rows, expected %d", len(spotTypes), rows)
+			return nil, errors.NewValidationError("spotTypes",
+				fmt.Sprintf("%d rows", len(spotTypes)),
+				fmt.Sprintf("expected %d rows", rows))
 		}
 
 		for i, row := range spotTypes {
 			if len(row) != columns {
-				return nil, fmt.Errorf("spot types row %d has %d columns, expected %d", i, len(row), columns)
+				return nil, errors.NewValidationError("spotTypes",
+					fmt.Sprintf("row %d has %d columns", i, len(row)),
+					fmt.Sprintf("expected %d columns", columns))
 			}
 		}
 	}
@@ -126,11 +137,15 @@ func (f *ParkingFloor) GetSpot(row, column int) (*ParkingSpot, error) {
 	defer f.mu.RUnlock()
 
 	if row < 0 || row >= f.numRows {
-		return nil, fmt.Errorf("row %d out of range [0-%d]", row, f.numRows-1)
+		return nil, errors.NewValidationError("row",
+			fmt.Sprintf("%d", row),
+			fmt.Sprintf("row out of range [0-%d]", f.numRows-1))
 	}
 
 	if column < 0 || column >= f.numColumns {
-		return nil, fmt.Errorf("column %d out of range [0-%d]", column, f.numColumns-1)
+		return nil, errors.NewValidationError("column",
+			fmt.Sprintf("%d", column),
+			fmt.Sprintf("column out of range [0-%d]", f.numColumns-1))
 	}
 
 	return f.spots[row][column], nil
