@@ -1,8 +1,9 @@
 package model
 
 import (
-	"errors"
 	"strings"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 // VehicleType represents the type of a vehicle
@@ -17,11 +18,6 @@ const (
 
 	// VehicleTypeAutomobile represents an automobile
 	VehicleTypeAutomobile VehicleType = "AUTOMOBILE"
-)
-
-// Error definitions
-var (
-	ErrInvalidVehicleType = errors.New("invalid vehicle type")
 )
 
 // GetPreferredSpotType returns the preferred spot type for this vehicle type
@@ -63,7 +59,7 @@ func ParseVehicleType(s string) (VehicleType, error) {
 	case "AUTOMOBILE", "A", "CAR", "AUTO":
 		return VehicleTypeAutomobile, nil
 	default:
-		return "", ErrInvalidVehicleType
+		return "", errors.NewInvalidVehicleTypeError(s)
 	}
 }
 
