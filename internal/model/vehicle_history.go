@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 )
 
 // ParkingRecord represent a single parking or unparking event
@@ -57,19 +59,21 @@ func (h *VehicleHistory) AddParkingRecord(spotID string) {
 }
 
 // CompleteLastParkingRecord marks the last parking record as complete
-func (h *VehicleHistory) CompleteLastParkingRecord() bool {
+func (h *VehicleHistory) CompleteLastParkingRecord() error {
 	if len(h.Records) == 0 {
-		return false
+		return errors.NewInvalidOperationError("completeRecord",
+			"no parking records exist for this vehicle")
 	}
 
 	lastIndex := len(h.Records) - 1
 	if h.Records[lastIndex].IsComplete() {
-		return false
+		return errors.NewInvalidOperationError("completeRecord",
+			"last record is already complete")
 	}
 
 	now := time.Now()
 	h.Records[lastIndex].UnparkedAt = &now
-	return true
+	return nil
 }
 
 // GetLastParkingRecord returns the last parking record for the vehicle
