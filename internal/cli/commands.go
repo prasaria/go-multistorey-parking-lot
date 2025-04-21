@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"errors"
@@ -65,6 +65,11 @@ func (r *CommandRegistry) RegisterCommand(cmd *Command) {
 func (r *CommandRegistry) GetCommand(name string) (*Command, bool) {
 	cmd, found := r.Commands[name]
 	return cmd, found
+}
+
+// GetCommands returns all commands in the registry
+func (r *CommandRegistry) GetCommands() map[string]*Command {
+	return r.Commands
 }
 
 // Add option parsing to ExecuteCommand
@@ -506,7 +511,7 @@ func (r *CommandRegistry) handleSearch(args []string) error {
 		} else {
 			PrintWarning("Vehicle %s not found in the parking lot", vehicleNumber)
 		}
-		return nil
+		return notFoundErr
 	}
 
 	// Handle other errors
