@@ -41,6 +41,7 @@ type CommandRegistry struct {
 	Commands   map[string]*Command
 	parkingLot *model.ParkingLot
 	Options    CommandOptions
+	Logger     *Logger
 }
 
 // NewCommandRegistry creates a new command registry
@@ -51,6 +52,7 @@ func NewCommandRegistry() *CommandRegistry {
 			Format:  OutputFormatText,
 			Verbose: false,
 		},
+		Logger: NewLogger(false),
 	}
 }
 
@@ -74,6 +76,7 @@ func (r *CommandRegistry) ExecuteCommand(name string, args []string) error {
 			r.Options.Format = OutputFormatJSON
 		} else if arg == "--verbose" || arg == "-v" {
 			r.Options.Verbose = true
+			r.Logger = NewLogger(true)
 		} else {
 			filteredArgs = append(filteredArgs, arg)
 		}
@@ -251,7 +254,7 @@ func (r *CommandRegistry) logVerbose(format string, args ...any) {
 
 // handleInit handles the init command
 func (r *CommandRegistry) handleInit(args []string) error {
-	r.logVerbose("Initializing parking lot with args: %v", args)
+	r.Logger.Debug("Initializing parking lot with args: %v", args)
 
 	// Parse arguments
 	floors, err := strconv.Atoi(args[0])
@@ -269,7 +272,7 @@ func (r *CommandRegistry) handleInit(args []string) error {
 		return fmt.Errorf("invalid columns value: %s", args[2])
 	}
 
-	r.logVerbose("Creating parking lot with %d floors, %d rows, %d columns",
+	r.Logger.Debug("Creating parking lot with %d floors, %d rows, %d columns",
 		floors, rows, columns)
 
 	// Create the parking lot
@@ -327,7 +330,7 @@ func (r *CommandRegistry) handlePark(args []string) error {
 	vehicleTypeStr := strings.ToUpper(args[0])
 	vehicleNumber := args[1]
 
-	r.logVerbose("Attempting to park vehicle: type=%s, number=%s",
+	r.Logger.Debug("Attempting to park vehicle: type=%s, number=%s",
 		vehicleTypeStr, vehicleNumber)
 
 	// Convert vehicle type
@@ -342,7 +345,7 @@ func (r *CommandRegistry) handlePark(args []string) error {
 		return fmt.Errorf("failed to park vehicle: %v", err)
 	}
 
-	r.logVerbose("Vehicle parked successfully at spot %s", spotID)
+	r.Logger.Debug("Vehicle parked successfully at spot %s", spotID)
 
 	if r.Options.Format == OutputFormatJSON {
 		// Output as JSON
@@ -372,7 +375,7 @@ func (r *CommandRegistry) handleUnpark(args []string) error {
 	spotID := args[0]
 	vehicleNumber := args[1]
 
-	r.logVerbose("Attempting to remove vehicle %s from spot %s",
+	r.Logger.Debug("Attempting to remove vehicle %s from spot %s",
 		vehicleNumber, spotID)
 
 	// Try to unpark the vehicle
@@ -381,7 +384,7 @@ func (r *CommandRegistry) handleUnpark(args []string) error {
 		return fmt.Errorf("failed to unpark vehicle: %v", err)
 	}
 
-	r.logVerbose("Vehicle %s successfully removed from spot %s\n", vehicleNumber, spotID)
+	r.Logger.Debug("Vehicle %s successfully removed from spot %s\n", vehicleNumber, spotID)
 
 	if r.Options.Format == OutputFormatJSON {
 		// Output as JSON
@@ -409,7 +412,7 @@ func (r *CommandRegistry) handleAvailable(args []string) error {
 	// Parse arguments
 	vehicleTypeStr := strings.ToUpper(args[0])
 
-	r.logVerbose("Searching for available spots for vehicle type: %s", vehicleTypeStr)
+	r.Logger.Debug("Searching for available spots for vehicle type: %s", vehicleTypeStr)
 
 	// Convert vehicle type
 	vehicleType, err := model.ParseVehicleType(vehicleTypeStr)
@@ -423,7 +426,7 @@ func (r *CommandRegistry) handleAvailable(args []string) error {
 		return fmt.Errorf("failed to get available spots: %v", err)
 	}
 
-	r.logVerbose("Found %d available spots for %s", len(spots), vehicleTypeStr)
+	r.Logger.Debug("Found %d available spots for %s", len(spots), vehicleTypeStr)
 
 	if r.Options.Format == OutputFormatJSON {
 		// Output as JSON
@@ -489,7 +492,7 @@ func (r *CommandRegistry) handleSearch(args []string) error {
 	// Parse arguments
 	vehicleNumber := args[0]
 
-	r.logVerbose("Searching for vehicle with number: %s", vehicleNumber)
+	r.Logger.Debug("Searching for vehicle with number: %s", vehicleNumber)
 
 	// Search for the vehicle
 	spotID, isParked, err := r.parkingLot.SearchVehicle(vehicleNumber)
@@ -497,7 +500,7 @@ func (r *CommandRegistry) handleSearch(args []string) error {
 	// Special case for "not found" errors
 	var notFoundErr *perrors.VehicleNotFoundError
 	if errors.As(err, &notFoundErr) {
-		r.logVerbose("Vehicle %s not found in the parking lot", vehicleNumber)
+		r.Logger.Debug("Vehicle %s not found in the parking lot", vehicleNumber)
 
 		if r.Options.Format == OutputFormatJSON {
 			result := SearchResult{
@@ -516,11 +519,11 @@ func (r *CommandRegistry) handleSearch(args []string) error {
 
 	// Handle other errors
 	if err != nil {
-		r.logVerbose("Error searching for vehicle: %v", err)
+		r.Logger.Debug("Error searching for vehicle: %v", err)
 		return fmt.Errorf("failed to search for vehicle: %v", err)
 	}
 
-	r.logVerbose("Vehicle found: spotID=%s, isParked=%v", spotID, isParked)
+	r.Logger.Debug("Vehicle found: spotID=%s, isParked=%v", spotID, isParked)
 
 	if r.Options.Format == OutputFormatJSON {
 		// Output as JSON
@@ -595,7 +598,7 @@ func (r *CommandRegistry) handleStatus(args []string) error {
 		return fmt.Errorf("parking lot not initialized, use 'init' command first")
 	}
 
-	r.logVerbose("Retrieving parking lot status")
+	r.Logger.Debug("Retrieving parking lot status")
 
 	// Get parking lot information
 	totalSpots := r.parkingLot.GetTotalSpotCount()
@@ -605,7 +608,7 @@ func (r *CommandRegistry) handleStatus(args []string) error {
 
 	// Get counts by type
 	spotCounts := r.parkingLot.GetSpotCountByType()
-	r.logVerbose("Spot counts by type: B=%d, M=%d, A=%d, X=%d",
+	r.Logger.Debug("Spot counts by type: B=%d, M=%d, A=%d, X=%d",
 		spotCounts[model.SpotTypeBicycle],
 		spotCounts[model.SpotTypeMotorcycle],
 		spotCounts[model.SpotTypeAutomobile],
@@ -613,14 +616,14 @@ func (r *CommandRegistry) handleStatus(args []string) error {
 
 	// Get available counts by vehicle type
 	availableCounts := r.parkingLot.GetAvailableSpotCountByType()
-	r.logVerbose("Available spots by vehicle type: B=%d, M=%d, A=%d",
+	r.Logger.Debug("Available spots by vehicle type: B=%d, M=%d, A=%d",
 		availableCounts[model.VehicleTypeBicycle],
 		availableCounts[model.VehicleTypeMotorcycle],
 		availableCounts[model.VehicleTypeAutomobile])
 
 	// Get parked vehicles
 	parkedVehicles := r.parkingLot.GetAllParkedVehicles()
-	r.logVerbose("Total parked vehicles: %d", len(parkedVehicles))
+	r.Logger.Debug("Total parked vehicles: %d", len(parkedVehicles))
 
 	if r.Options.Format == OutputFormatJSON {
 		// Output as JSON
