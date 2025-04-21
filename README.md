@@ -1,124 +1,303 @@
-# Multi-Storey Parking Lot Management System
+# Multi-Storey Parking Lot CLI System
 
-A robust command-line interface (CLI) application designed to manage a multi-storey parking facility with support for various vehicle types, written in Go 1.24.1.
+A command-line application for managing a multi-storey parking lot written in Go.
 
-## Project Overview
+## Features
 
-This system simulates a real-world parking lot with multiple floors, rows, and columns of parking spots. It's designed to handle concurrent access through multiple entry/exit gates while maintaining data consistency.
-
-## Key Features
-
-- Configurable parking layout with support for up to 8 floors
-- Dedicated spots for different vehicle types (bicycles, motorcycles, automobiles)
+- Multiple floors with configurable rows and columns
+- Support for different vehicle types (bicycles, motorcycles, automobiles)
+- Park and unpark vehicles
+- Find available parking spots
+- Search for vehicles by license plate number
 - Thread-safe operations for concurrent access
-- Customizable spot allocation strategy
-- Comprehensive vehicle tracking and reporting
+- Interactive CLI with colorized output
+- JSON output option for programmatic use
 
-## System Requirements
+## UML Diagram
 
-- Go 1.24.1 or higher
-- No external dependencies for core functionality
+```plaintext
++---------------------+       +---------------------+       +---------------------+
+|      ParkingLot     |       |     ParkingFloor    |       |      ParkingSpot    |
++---------------------+       +---------------------+       +---------------------+
+| - floors: []Floor   |1     *| - spots: [][]Spot   |1     *| - type: SpotType    |
+| - parkedVehicles    |<----->| - floorNum: int     |<----->| - isActive: bool    |
+| - vehicleHistory    |       | - numRows: int      |       | - isOccupied: bool  |
+| - mutex: RWMutex    |       | - numCols: int      |       | - vehicleNumber: str|
++---------------------+       +---------------------+       | - row: int          |
+| + Park()            |       | + GetSpot()         |       | - column: int       |
+| + Unpark()          |       | + GetAvailableSpots |       +---------------------+
+| + AvailableSpot()   |       | + FindVehicle()     |       | + GetSpotID()       |
+| + SearchVehicle()   |       +---------------------+       | + Occupy()          |
++---------------------+                                     | + Vacate()          |
+                                                            | + CanPark()         |
+                                                            +---------------------+
+                                                                      ^
+                                                                      |
++---------------------+       +---------------------+                 |
+|      Vehicle        |       |     SpotType        |<----------------+
++---------------------+       +---------------------+
+| - type: VehicleType |       | BICYCLE (B-1)       |
+| - number: string    |       | MOTORCYCLE (M-1)    |
++---------------------+       | AUTOMOBILE (A-1)    |
+                              | INACTIVE (X-0)      |
++---------------------+       +---------------------+
+|    VehicleType      |
++---------------------+
+| BICYCLE             |
+| MOTORCYCLE          |
+| AUTOMOBILE          |
++---------------------+
+```
 
 ## Installation
 
+### Prerequisites
+
+- Go 1.24.1 or higher
+
+### Building from Source
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/prasaria/go-multistorey-parking-lot.git
+   cd parking-lot
+   ```
+
+2. Build the application:
+
+   ```bash
+   make build
+   ```
+
+3. Run the application:
+
+   ```bash
+   make run
+   ```
+
+### Using Go Run
+
+You can also run the application directly without building:
+
 ```bash
-# Get the code
-git clone https://github.com/prasaria/go-multistorey-parking-lot.git
-
-# Move into the project directory
-cd go-multistorey-parking-lot
-
-# Build the application
-go build -o bin/parking-lot cmd/go-multistorey-parking-lot/main.go
-
-# Run the application
-./bin/parking-lot
+go run ./cmd/parking-lot
 ```
 
-## Usage Examples
+## Usage
 
-### Initializing a Parking Lot
+### Interactive Mode
 
-Start a new parking session by configuring the lot dimensions:
+Start the application in interactive mode:
 
 ```bash
-# Create a default parking lot (3 floors, 5 rows, 10 columns)
-./bin/parking-lot init
-
-# Create a custom-sized parking lot
-./bin/parking-lot init -floors 4 -rows 8 -columns 15
+bin/parking-lot
 ```
 
-### Parking Operations
+This will present you with a prompt where you can enter commands:
 
 ```bash
-# Park a vehicle
-./bin/parking-lot park -type automobile -number "KA01AB1234"
+Welcome to Parking Lot CLI
+Type 'help' to see available commands or 'exit' to quit
+Options:
+  --json    Output results in JSON format
+  --verbose Show detailed operation logs
 
-# Remove a vehicle from a spot
-./bin/parking-lot unpark -spot "2-3-5" -number "KA01AB1234"
-
-# Find available parking spots for a specific vehicle type
-./bin/parking-lot available -type motorcycle
-
-# Locate a vehicle in the parking lot
-./bin/parking-lot search -number "KA01AB1234"
+> 
 ```
 
-## Design Approach
+### Available Commands
 
-The parking lot system follows a modular design with several key components:
+#### Initialize Parking Lot
 
-- **CLI Interface**: Handles user commands and displays results
-- **Parking Manager**: Core component managing all parking operations
-- **Spot Allocator**: Assigns optimal spots based on vehicle type
-- **Data Store**: Maintains the state of all parking spots
-- **Concurrency Control**: Ensures thread-safety for multiple gates
+Create a new parking lot with specified dimensions:
 
-## Thread Safety
-
-The system implements a comprehensive concurrency control strategy using read-write mutexes to ensure that multiple parking gates can operate simultaneously without data corruption. Read operations can proceed in parallel, while write operations obtain exclusive locks.
-
-## Project Structure
-
-```tree
-parking-lot/
-├── cmd/                  # Application entrypoints
-├── internal/             # Private application code
-│   ├── model/            # Domain models
-│   ├── service/          # Business logic
-│   └── errors/           # Custom error types
-├── pkg/                  # Public library code
-│   ├── config/           # Configuration handling
-│   └── utils/            # Utility functions
-└── test/                 # Integration tests
+```bash
+> init <floors> <rows> <columns>
 ```
+
+Example:
+
+```bash
+> init 3 5 10
+```
+
+#### Park Vehicle
+
+Park a vehicle in the lot:
+
+```bash
+> park <vehicle_type> <vehicle_number>
+```
+
+Example:
+
+```bash
+> park automobile KA-01-HH-1234
+```
+
+#### Unpark Vehicle
+
+Remove a vehicle from its parking spot:
+
+```bash
+> unpark <spot_id> <vehicle_number>
+```
+
+Example:
+
+```bash
+> unpark 1-2-3 KA-01-HH-1234
+```
+
+#### Find Available Spots
+
+Display available spots for a vehicle type:
+
+```bash
+> available <vehicle_type>
+```
+
+Example:
+
+```bash
+> available motorcycle
+```
+
+#### Search Vehicle
+
+Search for a vehicle by its number:
+
+```bash
+> search <vehicle_number>
+```
+
+Example:
+
+```bash
+> search KA-01-HH-1234
+```
+
+#### Check Status
+
+Display the current status of the parking lot:
+
+```bash
+> status
+```
+
+#### Help
+
+Display help information:
+
+```bash
+> help
+```
+
+### JSON Output
+
+You can append `--json` to any command to get the output in JSON format:
+
+```bash
+> available bicycle --json
+```
+
+### Verbose Logging
+
+Use the `--verbose` or `-v` flag to see detailed operation logs:
+
+```bash
+> park automobile KA-01-HH-1234 --verbose
+```
+
+## Constraints
+
+- 1 <= floors <= 8
+- 1 <= rows <= 1000
+- 1 <= columns <= 1000
+- Each floor will have the same number of rows
+- Each rows will have the same number of columns
+- Each parking spot is of the following type:
+  - "B-1", active for bicycles
+  - "M-1", active for motorcycles
+  - "A-1", active for automobiles
+  - "X-0", inactive
 
 ## Development
 
-### Running Tests
+### Project Structure
+
+```tree
+parking-lot/
+├── bin/                      # Compiled binaries
+├── cmd/
+│   └── parking-lot/          # Main application
+│       ├── commands.go       # Command handling
+│       ├── json_output.go    # JSON output formatting
+│       ├── logger.go         # Logging utilities
+│       ├── main.go           # Entry point
+│       └── output.go         # Text output formatting
+├── internal/
+│   ├── model/                # Domain models
+│   │   ├── parking_lot.go    # Parking lot implementation
+│   │   ├── parking_floor.go  # Floor implementation
+│   │   ├── parking_spot.go   # Spot implementation
+│   │   ├── spot_type.go      # Spot type definitions
+│   │   ├── vehicle.go        # Vehicle implementation
+│   │   └── vehicle_type.go   # Vehicle type definitions
+│   └── errors/               # Custom error types
+├── test/                     # Integration tests
+├── .gitignore
+├── Makefile                  # Build commands
+├── go.mod
+└── README.md
+```
+
+### Testing
+
+Run all tests:
 
 ```bash
-# Run all tests
-go test ./...
+make test
+```
 
-# Run tests with race detector
-go test -race ./...
+Run tests with coverage:
 
-# Run specific test package
-go test ./pkg/config
+```bash
+make coverage
+```
+
+Run long tests:
+
+```bash
+make test-long
+```
+
+Run performance tests:
+
+```bash
+make test-perf
+```
+
+### Building
+
+Build for your current platform:
+
+```bash
+make build
+```
+
+Build for multiple platforms:
+
+```bash
+make build-all
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License .
 
-## Contributing
+## Acknowledgments
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+- This project was created as a learning exercise for Go programming
+- Inspired by real-world parking management systems
