@@ -270,10 +270,21 @@ func TestSearchVehicle(t *testing.T) {
 func TestReset(t *testing.T) {
 	lot, _ := CreateParkingLot("Reset Test Lot", 2, 3, 4)
 
-	// Park some vehicles
-	lot.Park(VehicleTypeBicycle, "B-0001")
-	lot.Park(VehicleTypeMotorcycle, "M-0001")
-	lot.Park(VehicleTypeAutomobile, "A-0001")
+	// Park some vehicles - Check errors
+	_, err := lot.Park(VehicleTypeBicycle, "B-0001")
+	if err != nil {
+		t.Fatalf("Failed to park bicycle: %v", err)
+	}
+
+	_, err = lot.Park(VehicleTypeMotorcycle, "M-0001")
+	if err != nil {
+		t.Fatalf("Failed to park motorcycle: %v", err)
+	}
+
+	_, err = lot.Park(VehicleTypeAutomobile, "A-0001")
+	if err != nil {
+		t.Fatalf("Failed to park automobile: %v", err)
+	}
 
 	if lot.GetOccupiedSpotCount() != 3 {
 		t.Errorf("Expected 3 occupied spots before reset, got %d",
@@ -296,7 +307,7 @@ func TestReset(t *testing.T) {
 	}
 
 	// Try to search for a previously parked vehicle
-	_, _, err := lot.SearchVehicle("B-0001")
+	_, _, err = lot.SearchVehicle("B-0001")
 	if err == nil {
 		t.Errorf("Expected error when searching for vehicle after reset")
 	}
