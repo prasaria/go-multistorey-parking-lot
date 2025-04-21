@@ -244,14 +244,6 @@ func (r *CommandRegistry) handleHelp(args []string) error {
 	return nil
 }
 
-// Add verbose logging function
-func (r *CommandRegistry) logVerbose(format string, args ...any) {
-	if r.Options.Verbose {
-		message := fmt.Sprintf(format, args...)
-		fmt.Printf("[VERBOSE] %s\n", message)
-	}
-}
-
 // handleInit handles the init command
 func (r *CommandRegistry) handleInit(args []string) error {
 	r.Logger.Debug("Initializing parking lot with args: %v", args)
