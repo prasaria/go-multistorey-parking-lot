@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	perrors "github.com/prasaria/go-multistorey-parking-lot/internal/errors"
 	"github.com/prasaria/go-multistorey-parking-lot/internal/model"
@@ -239,8 +241,18 @@ func (r *CommandRegistry) handleHelp(args []string) error {
 	return nil
 }
 
+// Add verbose logging function
+func (r *CommandRegistry) logVerbose(format string, args ...any) {
+	if r.Options.Verbose {
+		message := fmt.Sprintf(format, args...)
+		fmt.Printf("[VERBOSE] %s\n", message)
+	}
+}
+
 // handleInit handles the init command
 func (r *CommandRegistry) handleInit(args []string) error {
+	r.logVerbose("Initializing parking lot with args: %v", args)
+
 	// Parse arguments
 	floors, err := strconv.Atoi(args[0])
 	if err != nil {
@@ -257,6 +269,9 @@ func (r *CommandRegistry) handleInit(args []string) error {
 		return fmt.Errorf("invalid columns value: %s", args[2])
 	}
 
+	r.logVerbose("Creating parking lot with %d floors, %d rows, %d columns",
+		floors, rows, columns)
+
 	// Create the parking lot
 	parkingLot, err := model.CreateParkingLot("Parking Lot", floors, rows, columns)
 	if err != nil {
@@ -266,22 +281,37 @@ func (r *CommandRegistry) handleInit(args []string) error {
 	// Store the parking lot in the registry
 	r.SetParkingLot(parkingLot)
 
-	// Use formatted output
-	PrintSuccess("Created parking lot with %d floors, %d rows, and %d columns",
-		floors, rows, columns)
-	PrintInfo("Total spots: %d", parkingLot.GetTotalSpotCount())
-
-	// Show counts by type in a table
+	// Get counts by type
 	counts := parkingLot.GetSpotCountByType()
-	tableRows := [][]string{
-		{"Bicycle", fmt.Sprintf("%d", counts[model.SpotTypeBicycle])},
-		{"Motorcycle", fmt.Sprintf("%d", counts[model.SpotTypeMotorcycle])},
-		{"Automobile", fmt.Sprintf("%d", counts[model.SpotTypeAutomobile])},
-		{"Inactive", fmt.Sprintf("%d", counts[model.SpotTypeInactive])},
-	}
 
-	fmt.Println("Spot types:")
-	fmt.Println(FormatTable([]string{"Type", "Count"}, tableRows))
+	if r.Options.Format == OutputFormatJSON {
+		// Output as JSON
+		result := InitResult{
+			Floors:  floors,
+			Rows:    rows,
+			Columns: columns,
+			Total:   parkingLot.GetTotalSpotCount(),
+			Counts:  convertSpotTypeMap(counts),
+		}
+
+		PrintJSON("init", result, nil)
+	} else {
+		// Output as text
+		PrintSuccess("Created parking lot with %d floors, %d rows, and %d columns",
+			floors, rows, columns)
+		PrintInfo("Total spots: %d", parkingLot.GetTotalSpotCount())
+
+		// Show counts by type in a table
+		tableRows := [][]string{
+			{"Bicycle", fmt.Sprintf("%d", counts[model.SpotTypeBicycle])},
+			{"Motorcycle", fmt.Sprintf("%d", counts[model.SpotTypeMotorcycle])},
+			{"Automobile", fmt.Sprintf("%d", counts[model.SpotTypeAutomobile])},
+			{"Inactive", fmt.Sprintf("%d", counts[model.SpotTypeInactive])},
+		}
+
+		fmt.Println("Spot types:")
+		fmt.Println(FormatTable([]string{"Type", "Count"}, tableRows))
+	}
 
 	return nil
 }
@@ -297,6 +327,9 @@ func (r *CommandRegistry) handlePark(args []string) error {
 	vehicleTypeStr := strings.ToUpper(args[0])
 	vehicleNumber := args[1]
 
+	r.logVerbose("Attempting to park vehicle: type=%s, number=%s",
+		vehicleTypeStr, vehicleNumber)
+
 	// Convert vehicle type
 	vehicleType, err := model.ParseVehicleType(vehicleTypeStr)
 	if err != nil {
@@ -309,7 +342,22 @@ func (r *CommandRegistry) handlePark(args []string) error {
 		return fmt.Errorf("failed to park vehicle: %v", err)
 	}
 
-	PrintSuccess("Vehicle %s parked successfully at spot %s", vehicleNumber, spotID)
+	r.logVerbose("Vehicle parked successfully at spot %s", spotID)
+
+	if r.Options.Format == OutputFormatJSON {
+		// Output as JSON
+		result := ParkResult{
+			VehicleType:   string(vehicleType),
+			VehicleNumber: vehicleNumber,
+			SpotID:        spotID,
+		}
+
+		PrintJSON("park", result, nil)
+	} else {
+		// Output as text
+		PrintSuccess("Vehicle %s parked successfully at spot %s", vehicleNumber, spotID)
+	}
+
 	return nil
 }
 
@@ -324,13 +372,30 @@ func (r *CommandRegistry) handleUnpark(args []string) error {
 	spotID := args[0]
 	vehicleNumber := args[1]
 
+	r.logVerbose("Attempting to remove vehicle %s from spot %s",
+		vehicleNumber, spotID)
+
 	// Try to unpark the vehicle
 	err := r.parkingLot.Unpark(spotID, vehicleNumber)
 	if err != nil {
 		return fmt.Errorf("failed to unpark vehicle: %v", err)
 	}
 
-	fmt.Printf("Vehicle %s successfully removed from spot %s\n", vehicleNumber, spotID)
+	r.logVerbose("Vehicle %s successfully removed from spot %s\n", vehicleNumber, spotID)
+
+	if r.Options.Format == OutputFormatJSON {
+		// Output as JSON
+		result := UnparkResult{
+			VehicleNumber: vehicleNumber,
+			SpotID:        spotID,
+		}
+
+		PrintJSON("unpark", result, nil)
+	} else {
+		// Output as text
+		PrintSuccess("Vehicle %s successfully removed from spot %s\n", vehicleNumber, spotID)
+	}
+
 	return nil
 }
 
@@ -344,6 +409,8 @@ func (r *CommandRegistry) handleAvailable(args []string) error {
 	// Parse arguments
 	vehicleTypeStr := strings.ToUpper(args[0])
 
+	r.logVerbose("Searching for available spots for vehicle type: %s", vehicleTypeStr)
+
 	// Convert vehicle type
 	vehicleType, err := model.ParseVehicleType(vehicleTypeStr)
 	if err != nil {
@@ -356,28 +423,59 @@ func (r *CommandRegistry) handleAvailable(args []string) error {
 		return fmt.Errorf("failed to get available spots: %v", err)
 	}
 
-	if len(spots) == 0 {
-		fmt.Printf("No available spots for vehicle type %s\n", vehicleTypeStr)
-		return nil
-	}
+	r.logVerbose("Found %d available spots for %s", len(spots), vehicleTypeStr)
 
-	fmt.Printf("Available spots for %s:\n", model.GetVehicleTypeDisplay(vehicleType))
-
-	// Display spots in a grid-like format
-	for i, spotID := range spots {
-		fmt.Printf("%s", spotID)
-		if i < len(spots)-1 {
-			fmt.Print(", ")
+	if r.Options.Format == OutputFormatJSON {
+		// Output as JSON
+		result := AvailableResult{
+			VehicleType: string(vehicleType),
+			SpotIDs:     spots,
+			Count:       len(spots),
 		}
 
-		// Add a line break every 5 spots for readability
-		if (i+1)%5 == 0 {
-			fmt.Println()
+		PrintJSON("available", result, nil)
+	} else {
+		// Output as text
+		if len(spots) == 0 {
+			fmt.Printf("No available spots for vehicle type %s\n", vehicleTypeStr)
+			return nil
 		}
-	}
-	fmt.Println()
 
-	fmt.Printf("Total available: %d\n", len(spots))
+		fmt.Printf("Available spots for %s:\n", model.GetVehicleTypeDisplay(vehicleType))
+
+		// Display spots in a table format
+		const maxColsPerRow = 5
+		rows := [][]string{}
+		currentRow := []string{}
+
+		for _, spotID := range spots {
+			currentRow = append(currentRow, spotID)
+
+			if len(currentRow) == maxColsPerRow {
+				rows = append(rows, currentRow)
+				currentRow = []string{}
+			}
+		}
+
+		// Add the last partial row if any
+		if len(currentRow) > 0 {
+			// Pad with empty cells
+			for len(currentRow) < maxColsPerRow {
+				currentRow = append(currentRow, "")
+			}
+			rows = append(rows, currentRow)
+		}
+
+		// Create headers
+		headers := make([]string, maxColsPerRow)
+		for i := 0; i < maxColsPerRow; i++ {
+			headers[i] = fmt.Sprintf("Spot %d", i+1)
+		}
+
+		fmt.Println(FormatTable(headers, rows))
+		fmt.Printf("Total available: %d\n", len(spots))
+	}
+
 	return nil
 }
 
@@ -391,24 +489,100 @@ func (r *CommandRegistry) handleSearch(args []string) error {
 	// Parse arguments
 	vehicleNumber := args[0]
 
+	r.logVerbose("Searching for vehicle with number: %s", vehicleNumber)
+
 	// Search for the vehicle
 	spotID, isParked, err := r.parkingLot.SearchVehicle(vehicleNumber)
-	if err != nil {
-		// Special case for "not found" errors
-		var notFoundErr *perrors.VehicleNotFoundError
-		if errors.As(err, &notFoundErr) {
-			fmt.Printf("Vehicle %s not found in the parking lot\n", vehicleNumber)
-			return nil
-		}
 
+	// Special case for "not found" errors
+	var notFoundErr *perrors.VehicleNotFoundError
+	if errors.As(err, &notFoundErr) {
+		r.logVerbose("Vehicle %s not found in the parking lot", vehicleNumber)
+
+		if r.Options.Format == OutputFormatJSON {
+			result := SearchResult{
+				VehicleNumber: vehicleNumber,
+				SpotID:        "",
+				IsParked:      false,
+			}
+
+			// Use nil for error to indicate "not found" is not really an error in this context
+			PrintJSON("search", result, nil)
+		} else {
+			PrintWarning("Vehicle %s not found in the parking lot", vehicleNumber)
+		}
+		return nil
+	}
+
+	// Handle other errors
+	if err != nil {
+		r.logVerbose("Error searching for vehicle: %v", err)
 		return fmt.Errorf("failed to search for vehicle: %v", err)
 	}
 
-	if isParked {
-		fmt.Printf("Vehicle %s is currently parked at spot %s\n", vehicleNumber, spotID)
+	r.logVerbose("Vehicle found: spotID=%s, isParked=%v", spotID, isParked)
+
+	if r.Options.Format == OutputFormatJSON {
+		// Output as JSON
+		result := SearchResult{
+			VehicleNumber: vehicleNumber,
+			SpotID:        spotID,
+			IsParked:      isParked,
+		}
+
+		PrintJSON("search", result, nil)
 	} else {
-		fmt.Printf("Vehicle %s is not currently parked, but was last seen at spot %s\n",
-			vehicleNumber, spotID)
+		// Output as text
+		if isParked {
+			PrintSuccess("Vehicle %s is currently parked at spot %s", vehicleNumber, spotID)
+		} else {
+			PrintInfo("Vehicle %s is not currently parked, but was last seen at spot %s",
+				vehicleNumber, spotID)
+		}
+
+		// If verbose, try to get more information about the vehicle's history
+		if r.Options.Verbose {
+			history, found := r.parkingLot.GetVehicleHistory(vehicleNumber)
+			if found && history != nil {
+				fmt.Println("\nParking History:")
+
+				records := history.Records
+				if len(records) > 0 {
+					historyRows := make([][]string, 0, len(records))
+
+					for i, record := range records {
+						var duration, status string
+						if record.IsComplete() {
+							duration = FormatDuration(record.Duration())
+							status = "Completed"
+						} else {
+							duration = FormatDuration(time.Since(record.ParkedAt))
+							status = "Active"
+						}
+
+						parkedAt := record.ParkedAt.Format("2006-01-02 15:04:05")
+						var unparkedAt string
+						if record.UnparkedAt != nil {
+							unparkedAt = record.UnparkedAt.Format("2006-01-02 15:04:05")
+						} else {
+							unparkedAt = "Still Parked"
+						}
+
+						historyRows = append(historyRows, []string{
+							fmt.Sprintf("%d", i+1),
+							record.SpotID,
+							parkedAt,
+							unparkedAt,
+							duration,
+							status,
+						})
+					}
+
+					headers := []string{"#", "Spot ID", "Parked At", "Unparked At", "Duration", "Status"}
+					fmt.Println(FormatTable(headers, historyRows))
+				}
+			}
+		}
 	}
 
 	return nil
@@ -421,28 +595,90 @@ func (r *CommandRegistry) handleStatus(args []string) error {
 		return fmt.Errorf("parking lot not initialized, use 'init' command first")
 	}
 
-	fmt.Println(r.parkingLot.String())
+	r.logVerbose("Retrieving parking lot status")
 
-	// Show counts by type
-	counts := r.parkingLot.GetSpotCountByType()
-	fmt.Printf("  Bicycle spots: %d\n", counts[model.SpotTypeBicycle])
-	fmt.Printf("  Motorcycle spots: %d\n", counts[model.SpotTypeMotorcycle])
-	fmt.Printf("  Automobile spots: %d\n", counts[model.SpotTypeAutomobile])
-	fmt.Printf("  Inactive spots: %d\n", counts[model.SpotTypeInactive])
+	// Get parking lot information
+	totalSpots := r.parkingLot.GetTotalSpotCount()
+	activeSpots := r.parkingLot.GetActiveSpotCount()
+	occupiedSpots := r.parkingLot.GetOccupiedSpotCount()
+	availableSpots := r.parkingLot.GetAvailableSpotCount()
 
-	// Show available spots by vehicle type
+	// Get counts by type
+	spotCounts := r.parkingLot.GetSpotCountByType()
+	r.logVerbose("Spot counts by type: B=%d, M=%d, A=%d, X=%d",
+		spotCounts[model.SpotTypeBicycle],
+		spotCounts[model.SpotTypeMotorcycle],
+		spotCounts[model.SpotTypeAutomobile],
+		spotCounts[model.SpotTypeInactive])
+
+	// Get available counts by vehicle type
 	availableCounts := r.parkingLot.GetAvailableSpotCountByType()
-	fmt.Printf("Available spots by vehicle type:\n")
-	fmt.Printf("  Bicycle: %d\n", availableCounts[model.VehicleTypeBicycle])
-	fmt.Printf("  Motorcycle: %d\n", availableCounts[model.VehicleTypeMotorcycle])
-	fmt.Printf("  Automobile: %d\n", availableCounts[model.VehicleTypeAutomobile])
+	r.logVerbose("Available spots by vehicle type: B=%d, M=%d, A=%d",
+		availableCounts[model.VehicleTypeBicycle],
+		availableCounts[model.VehicleTypeMotorcycle],
+		availableCounts[model.VehicleTypeAutomobile])
 
-	// Show parked vehicles
+	// Get parked vehicles
 	parkedVehicles := r.parkingLot.GetAllParkedVehicles()
-	fmt.Printf("Currently parked vehicles: %d\n", len(parkedVehicles))
-	if len(parkedVehicles) > 0 {
-		for vehicleNumber, spotID := range parkedVehicles {
-			fmt.Printf("  %s at spot %s\n", vehicleNumber, spotID)
+	r.logVerbose("Total parked vehicles: %d", len(parkedVehicles))
+
+	if r.Options.Format == OutputFormatJSON {
+		// Output as JSON
+		result := StatusResult{
+			Name:            r.parkingLot.Name,
+			Floors:          r.parkingLot.GetNumFloors(),
+			TotalSpots:      totalSpots,
+			ActiveSpots:     activeSpots,
+			OccupiedSpots:   occupiedSpots,
+			AvailableSpots:  availableSpots,
+			SpotCounts:      convertSpotTypeMap(spotCounts),
+			AvailableCounts: convertVehicleTypeMap(availableCounts),
+			ParkedVehicles:  parkedVehicles,
+		}
+
+		PrintJSON("status", result, nil)
+	} else {
+		// Output as text
+		PrintInfo("%s", r.parkingLot.String())
+
+		// Show counts by type in a table
+		typeTableRows := [][]string{
+			{"Bicycle", fmt.Sprintf("%d", spotCounts[model.SpotTypeBicycle])},
+			{"Motorcycle", fmt.Sprintf("%d", spotCounts[model.SpotTypeMotorcycle])},
+			{"Automobile", fmt.Sprintf("%d", spotCounts[model.SpotTypeAutomobile])},
+			{"Inactive", fmt.Sprintf("%d", spotCounts[model.SpotTypeInactive])},
+		}
+
+		fmt.Println("Spot types:")
+		fmt.Println(FormatTable([]string{"Type", "Count"}, typeTableRows))
+
+		// Show available spots by vehicle type
+		availableTableRows := [][]string{
+			{"Bicycle", fmt.Sprintf("%d", availableCounts[model.VehicleTypeBicycle])},
+			{"Motorcycle", fmt.Sprintf("%d", availableCounts[model.VehicleTypeMotorcycle])},
+			{"Automobile", fmt.Sprintf("%d", availableCounts[model.VehicleTypeAutomobile])},
+		}
+
+		fmt.Println("Available spots by vehicle type:")
+		fmt.Println(FormatTable([]string{"Vehicle Type", "Available Spots"}, availableTableRows))
+
+		// Show parked vehicles
+		if len(parkedVehicles) > 0 {
+			fmt.Printf("Currently parked vehicles: %d\n", len(parkedVehicles))
+
+			vehicleTableRows := make([][]string, 0, len(parkedVehicles))
+			for vehicleNumber, spotID := range parkedVehicles {
+				vehicleTableRows = append(vehicleTableRows, []string{vehicleNumber, spotID})
+			}
+
+			// Sort the rows by vehicle number for consistent output
+			sort.Slice(vehicleTableRows, func(i, j int) bool {
+				return vehicleTableRows[i][0] < vehicleTableRows[j][0]
+			})
+
+			fmt.Println(FormatTable([]string{"Vehicle Number", "Spot ID"}, vehicleTableRows))
+		} else {
+			fmt.Println("No vehicles currently parked")
 		}
 	}
 
