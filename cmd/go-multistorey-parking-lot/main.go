@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/prasaria/go-multistorey-parking-lot/internal/cli"
 )
 
 func main() {
 	// Create and initialize command registry
-	registry := NewCommandRegistry()
+	registry := cli.NewCommandRegistry()
 	registry.RegisterAllCommands()
 
 	// Create interactive mode
