@@ -226,16 +226,22 @@ func (r *CommandRegistry) handleInit(args []string) error {
 	// Store the parking lot in the registry
 	r.SetParkingLot(parkingLot)
 
-	fmt.Printf("Created parking lot with %d floors, %d rows, and %d columns\n",
+	// Use formatted output
+	PrintSuccess("Created parking lot with %d floors, %d rows, and %d columns",
 		floors, rows, columns)
-	fmt.Printf("Total spots: %d\n", parkingLot.GetTotalSpotCount())
+	PrintInfo("Total spots: %d", parkingLot.GetTotalSpotCount())
 
-	// Show counts by type
+	// Show counts by type in a table
 	counts := parkingLot.GetSpotCountByType()
-	fmt.Printf("  Bicycle spots: %d\n", counts[model.SpotTypeBicycle])
-	fmt.Printf("  Motorcycle spots: %d\n", counts[model.SpotTypeMotorcycle])
-	fmt.Printf("  Automobile spots: %d\n", counts[model.SpotTypeAutomobile])
-	fmt.Printf("  Inactive spots: %d\n", counts[model.SpotTypeInactive])
+	tableRows := [][]string{
+		{"Bicycle", fmt.Sprintf("%d", counts[model.SpotTypeBicycle])},
+		{"Motorcycle", fmt.Sprintf("%d", counts[model.SpotTypeMotorcycle])},
+		{"Automobile", fmt.Sprintf("%d", counts[model.SpotTypeAutomobile])},
+		{"Inactive", fmt.Sprintf("%d", counts[model.SpotTypeInactive])},
+	}
+
+	fmt.Println("Spot types:")
+	fmt.Println(FormatTable([]string{"Type", "Count"}, tableRows))
 
 	return nil
 }
@@ -263,7 +269,7 @@ func (r *CommandRegistry) handlePark(args []string) error {
 		return fmt.Errorf("failed to park vehicle: %v", err)
 	}
 
-	fmt.Printf("Vehicle %s parked successfully at spot %s\n", vehicleNumber, spotID)
+	PrintSuccess("Vehicle %s parked successfully at spot %s", vehicleNumber, spotID)
 	return nil
 }
 
