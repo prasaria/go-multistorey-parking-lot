@@ -19,25 +19,25 @@ const (
 )
 
 // PrintError prints an error message in red
-func PrintError(format string, args ...interface{}) {
+func PrintError(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	fmt.Printf("%sError: %s%s\n", colorRed, message, colorReset)
 }
 
 // PrintSuccess prints a success message in green
-func PrintSuccess(format string, args ...interface{}) {
+func PrintSuccess(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	fmt.Printf("%s%s%s\n", colorGreen, message, colorReset)
 }
 
 // PrintInfo prints an info message in blue
-func PrintInfo(format string, args ...interface{}) {
+func PrintInfo(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	fmt.Printf("%s%s%s\n", colorBlue, message, colorReset)
 }
 
 // PrintWarning prints a warning message in yellow
-func PrintWarning(format string, args ...interface{}) {
+func PrintWarning(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	fmt.Printf("%s%s%s\n", colorYellow, message, colorReset)
 }
