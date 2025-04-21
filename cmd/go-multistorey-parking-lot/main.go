@@ -12,6 +12,9 @@ func main() {
 	registry := NewCommandRegistry()
 	registry.RegisterAllCommands()
 
+	// Create interactive mode
+	interactive := NewInteractiveMode(registry)
+
 	// Print welcome message
 	fmt.Println("Welcome to Parking Lot CLI")
 	fmt.Println("Type 'help' to see available commands or 'exit' to quit")
@@ -29,34 +32,10 @@ func main() {
 			break
 		}
 
-		// Get command line
+		// Process command
 		line := scanner.Text()
-		line = strings.TrimSpace(line)
-
-		// Skip empty lines
-		if line == "" {
-			continue
-		}
-
-		// Parse command and arguments
-		parts := splitCommandLine(line)
-		if len(parts) == 0 {
-			continue
-		}
-
-		command := parts[0]
-		args := parts[1:]
-
-		// Handle exit command directly
-		if command == "exit" {
-			fmt.Println("Exiting...")
+		if !interactive.ProcessCommand(line) {
 			break
-		}
-
-		// Execute the command
-		err := registry.ExecuteCommand(command, args)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
 		}
 	}
 }
