@@ -5,17 +5,25 @@ import (
 	"os"
 	"strings"
 
+	"github.com/prasaria/go-multistorey-parking-lot/internal/cli"
 	"github.com/prasaria/go-multistorey-parking-lot/internal/model"
 )
 
+// CommandRegistryInterface defines the interface for the command registry
+type CommandRegistryInterface interface {
+	ExecuteCommand(name string, args []string) error
+	GetParkingLot() *model.ParkingLot
+	GetCommands() map[string]*cli.Command
+}
+
 // InteractiveMode contains enhancements for interactive command-line mode
 type InteractiveMode struct {
-	Registry *CommandRegistry
+	Registry CommandRegistryInterface
 	History  []string
 }
 
 // NewInteractiveMode creates a new interactive mode
-func NewInteractiveMode(registry *CommandRegistry) *InteractiveMode {
+func NewInteractiveMode(registry CommandRegistryInterface) *InteractiveMode {
 	return &InteractiveMode{
 		Registry: registry,
 		History:  make([]string, 0),
@@ -67,7 +75,7 @@ func (i *InteractiveMode) AutoComplete(partial string) []string {
 	var completions []string
 
 	// Complete commands
-	for name := range i.Registry.Commands {
+	for name := range i.Registry.GetCommands() {
 		if strings.HasPrefix(name, partial) {
 			completions = append(completions, name)
 		}
@@ -106,9 +114,10 @@ func (i *InteractiveMode) GetExampleCommands() []string {
 	}
 
 	// Add more tailored examples if the parking lot is initialized
-	if i.Registry.GetParkingLot() != nil {
+	parkingLot := i.Registry.GetParkingLot()
+	if parkingLot != nil {
 		// Get counts by vehicle type to suggest available types
-		availableCounts := i.Registry.GetParkingLot().GetAvailableSpotCountByType()
+		availableCounts := parkingLot.GetAvailableSpotCountByType()
 
 		var vehicleType model.VehicleType
 		if availableCounts[model.VehicleTypeBicycle] > 0 {
