@@ -18,6 +18,9 @@ func main() {
 	// Print welcome message
 	fmt.Println("Welcome to Parking Lot CLI")
 	fmt.Println("Type 'help' to see available commands or 'exit' to quit")
+	fmt.Println("Options:")
+	fmt.Println("  --json    Output results in JSON format")
+	fmt.Println("  --verbose Show detailed operation logs")
 
 	// Create scanner for reading user input
 	scanner := bufio.NewScanner(os.Stdin)
