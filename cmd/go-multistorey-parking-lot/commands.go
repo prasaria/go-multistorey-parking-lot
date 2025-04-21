@@ -20,16 +20,35 @@ type Command struct {
 	Handler     func(args []string) error
 }
 
-// CommandRegistry holds all available commands
+// OutputFormat represents the format of command output
+type OutputFormat int
+
+const (
+	OutputFormatText OutputFormat = iota
+	OutputFormatJSON
+)
+
+// CommandOptions contains options for command execution
+type CommandOptions struct {
+	Format  OutputFormat
+	Verbose bool
+}
+
+// Update CommandRegistry to include options
 type CommandRegistry struct {
 	Commands   map[string]*Command
 	parkingLot *model.ParkingLot
+	Options    CommandOptions
 }
 
 // NewCommandRegistry creates a new command registry
 func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{
 		Commands: make(map[string]*Command),
+		Options: CommandOptions{
+			Format:  OutputFormatText,
+			Verbose: false,
+		},
 	}
 }
 
@@ -44,24 +63,45 @@ func (r *CommandRegistry) GetCommand(name string) (*Command, bool) {
 	return cmd, found
 }
 
-// ExecuteCommand executes a command with the given arguments
+// Add option parsing to ExecuteCommand
 func (r *CommandRegistry) ExecuteCommand(name string, args []string) error {
+	// Parse options first
+	filteredArgs := make([]string, 0)
+	for _, arg := range args {
+		if arg == "--json" {
+			r.Options.Format = OutputFormatJSON
+		} else if arg == "--verbose" || arg == "-v" {
+			r.Options.Verbose = true
+		} else {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
+	// Look up command
 	cmd, found := r.GetCommand(name)
 	if !found {
 		return fmt.Errorf("unknown command: %s\nType 'help' to see available commands", name)
 	}
 
-	// Validate argument count
-	if len(args) < cmd.MinArgs {
+	// Validate argument count (with filtered args now)
+	if len(filteredArgs) < cmd.MinArgs {
 		return fmt.Errorf("too few arguments for command '%s'\nUsage: %s", name, cmd.Usage)
 	}
 
-	if cmd.MaxArgs >= 0 && len(args) > cmd.MaxArgs {
+	if cmd.MaxArgs >= 0 && len(filteredArgs) > cmd.MaxArgs {
 		return fmt.Errorf("too many arguments for command '%s'\nUsage: %s", name, cmd.Usage)
 	}
 
-	// Execute the command
-	return cmd.Handler(args)
+	// Execute the command with filtered args
+	err := cmd.Handler(filteredArgs)
+
+	// Reset options after command execution
+	r.Options = CommandOptions{
+		Format:  OutputFormatText,
+		Verbose: false,
+	}
+
+	return err
 }
 
 // SetParkingLot sets the parking lot instance for the command registry
